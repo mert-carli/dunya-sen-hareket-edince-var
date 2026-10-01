@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DÜNYA SEN HAREKET EDİNCE VAR</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;800&family=Plus+Jakarta+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #04060a;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      color: #e2e8f0;
+    }
+
+    #gameCanvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+      background: radial-gradient(circle at center, #070b14 0%, #030407 100%);
+    }
+
+    /* UI Overlay Layer */
+    .ui-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 24px 32px;
+    }
+
+    /* Top HUD */
+    .hud-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: opacity 1s ease, transform 1s ease;
+    }
+
+    .hud-top.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .hud-pill {
+      background: rgba(10, 16, 28, 0.65);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      padding: 8px 18px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .hud-stat {
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(226, 232, 240, 0.75);
+      font-weight: 500;
+    }
+
+    .hud-stat strong {
+      color: #38bdf8;
+      font-weight: 700;
+      margin-left: 4px;
+      text-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+    }
+
+    .chapter-indicator {
+      font-family: 'Cinzel', serif;
+      font-size: 13px;
+      letter-spacing: 0.25em;
+      color: rgba(248, 250, 252, 0.9);
+      text-transform: uppercase;
+      font-weight: 600;
+      text-shadow: 0 0 16px rgba(255, 255, 255, 0.3);
+    }
+
+    .audio-btn {
+      pointer-events: auto;
+      cursor: pointer;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      color: rgba(226, 232, 240, 0.8);
+      padding: 8px 14px;
+      border-radius: 9999px;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .audio-btn:hover {
+      background: rgba(30, 41, 59, 0.8);
+      border-color: rgba(56, 189, 248, 0.5);
+      color: #fff;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+    }
+
+    /* Ambient Prompt Center (Neden durdun? vb.) */
+    .prompt-center {
+      position: absolute;
+      top: 22%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .idle-message {
+      font-family: 'Cinzel', serif;
+      font-size: 24px;
+      font-weight: 400;
+      letter-spacing: 0.2em;
+      color: rgba(241, 245, 249, 0.9);
+      text-shadow: 0 0 25px rgba(56, 189, 248, 0.6), 0 0 50px rgba(0, 0, 0, 0.8);
+      opacity: 0;
+      transform: translateY(10px) scale(0.96);
+      transition: opacity 1.5s cubic-bezier(0.16, 1, 0.3, 1), transform 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .idle-message.show {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    .idle-sub {
+      font-size: 13px;
+      letter-spacing: 0.25em;
+      color: rgba(148, 163, 184, 0.8);
+      margin-top: 10px;
+      text-transform: uppercase;
+      font-weight: 300;
+    }
+
+    /* Chapter Title Banner */
+    .chapter-banner {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 1.2s ease, transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .chapter-banner.active {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1.05);
+    }
+
+    .banner-num {
+      font-size: 11px;
+      letter-spacing: 0.5em;
+      color: #38bdf8;
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .banner-title {
+      font-family: 'Cinzel', serif;
+      font-size: 38px;
+      font-weight: 700;
+      letter-spacing: 0.3em;
+      color: #ffffff;
+      text-shadow: 0 0 40px rgba(56, 189, 248, 0.7);
+    }
+
+    .banner-desc {
+      font-size: 14px;
+      letter-spacing: 0.2em;
+      color: rgba(203, 213, 225, 0.75);
+      margin-top: 12px;
+      font-weight: 300;
+      font-style: italic;
+    }
+
+    /* Controls Guide */
+    .hud-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      opacity: 0;
+      transition: opacity 1s ease;
+    }
+
+    .hud-bottom.visible {
+      opacity: 1;
+    }
+
+    .key-hints {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      background: rgba(10, 16, 28, 0.5);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      backdrop-filter: blur(12px);
+      padding: 6px 14px;
+      border-radius: 9999px;
+    }
+
+    .key-box {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      font-size: 10px;
+      color: #94a3b8;
+      font-weight: 600;
+    }
+
+    .key-text {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      color: rgba(148, 163, 184, 0.7);
+      text-transform: uppercase;
+      margin-left: 4px;
+    }
+
+    /* Title Screen Overlay */
+    .screen-overlay {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, rgba(8, 12, 22, 0.94) 0%, rgba(2, 4, 8, 0.98) 100%);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+      transition: opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 1.2s;
+    }
+
+    .screen-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .title-logo {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 28px;
+      position: relative;
+    }
+
+    .title-logo::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      animation: pulseLogo 3s infinite ease-in-out;
+    }
+
+    .title-logo-core {
+      position: absolute;
+      inset: 18px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #38bdf8 0%, #0284c7 100%);
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.8);
+    }
+
+    @keyframes pulseLogo {
+      0%, 100% { transform: scale(1); opacity: 0.4; }
+      50% { transform: scale(1.35); opacity: 0.9; }
+    }
+
+    .title-heading {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(26px, 4.5vw, 46px);
+      font-weight: 700;
+      letter-spacing: 0.25em;
+      color: #f8fafc;
+      text-transform: uppercase;
+      text-shadow: 0 0 35px rgba(56, 189, 248, 0.5);
+      margin-bottom: 12px;
+      line-height: 1.3;
+    }
+
+    .title-quote {
+      font-size: clamp(14px, 2vw, 17px);
+      letter-spacing: 0.28em;
+      color: #94a3b8;
+      font-style: italic;
+      margin-bottom: 48px;
+      font-weight: 300;
+    }
+
+    .btn-start {
+      pointer-events: auto;
+      cursor: pointer;
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      color: #f0f9ff;
+      padding: 16px 48px;
+      border-radius: 9999px;
+      font-family: 'Cinzel', serif;
+      font-size: 14px;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      font-weight: 600;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 0 30px rgba(56, 189, 248, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-start:hover {
+      background: rgba(56, 189, 248, 0.22);
+      border-color: rgba(56, 189, 248, 0.9);
+      box-shadow: 0 0 45px rgba(56, 189, 248, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+      transform: translateY(-2px) scale(1.03);
+      color: #ffffff;
+    }
+
+    .btn-start:active {
+      transform: translateY(1px) scale(0.98);
+    }
+
+    .title-guide {
+      margin-top: 28px;
+      font-size: 11px;
+      letter-spacing: 0.25em;
+      color: rgba(148, 163, 184, 0.6);
+      text-transform: uppercase;
+    }
+
+    .dev-credit-link {
+      margin-top: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 16px;
+      border-radius: 9999px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      color: rgba(203, 213, 225, 0.8);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-decoration: none;
+      pointer-events: auto;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(12px);
+    }
+
+    .dev-credit-link:hover {
+      background: rgba(30, 41, 59, 0.9);
+      border-color: rgba(56, 189, 248, 0.6);
+      color: #38bdf8;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
+      transform: translateY(-2px);
+    }
+
+    .dev-credit-link svg {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+    }
+
+    /* Final Revelation Screen */
+    .final-screen {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(6, 10, 20, 0.96) 0%, rgba(2, 3, 6, 0.99) 100%);
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      text-align: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 2s ease, visibility 2s;
+    }
+
+    .final-screen.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .final-quote-1 {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(22px, 3.5vw, 36px);
+      letter-spacing: 0.18em;
+      color: #f1f5f9;
+      font-weight: 400;
+      line-height: 1.6;
+      margin-bottom: 24px;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 1.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .final-quote-2 {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(24px, 4vw, 42px);
+      letter-spacing: 0.2em;
+      color: #38bdf8;
+      font-weight: 700;
+      line-height: 1.6;
+      text-shadow: 0 0 35px rgba(56, 189, 248, 0.8);
+      margin-bottom: 40px;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 1.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .final-stats {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      backdrop-filter: blur(16px);
+      border-radius: 20px;
+      padding: 20px 36px;
+      display: flex;
+      gap: 36px;
+      margin-bottom: 40px;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 1.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .final-stat-item {
+      text-align: center;
+    }
+
+    .final-stat-val {
+      font-size: 24px;
+      font-weight: 700;
+      color: #f8fafc;
+      font-family: 'Cinzel', serif;
+    }
+
+    .final-stat-lbl {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: #94a3b8;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    .btn-sandbox {
+      pointer-events: auto;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #e2e8f0;
+      padding: 14px 36px;
+      border-radius: 9999px;
+      font-size: 12px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      transition: all 0.3s ease;
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    .btn-sandbox:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: #38bdf8;
+      color: #fff;
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.4);
+    }
+
+    .visible-anim {
+      opacity: 1 !important;
+      transform: translateY(0) !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Game Rendering Canvas -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- In-Game UI Overlay -->
+  <div class="ui-layer">
+    <!-- Top HUD -->
+    <div class="hud-top" id="hudTop">
+      <div class="hud-pill">
+        <span class="chapter-indicator" id="hudChapter">BÖLÜM I — BOŞLUK</span>
+      </div>
+
+      <div class="hud-pill">
+        <div class="hud-stat">DÜNYA: <strong id="hudWorld">001</strong></div>
+        <div class="hud-stat">KEŞİF: <strong id="hudDiscovered">0%</strong></div>
+        <div class="hud-stat">ADIM: <strong id="hudSteps">0</strong></div>
+      </div>
+
+      <button class="audio-btn" id="audioToggle">
+        <span id="audioIcon">🔊</span>
+        <span id="audioText">SES: AÇIK</span>
+      </button>
+    </div>
+
+    <!-- Center Idle Mystery Messages -->
+    <div class="prompt-center">
+      <div class="idle-message" id="idleMsgBox">
+        <div id="idleMsgText">Neden durdun?</div>
+        <div class="idle-sub" id="idleSubText">Dünya seni bekliyor</div>
+      </div>
+    </div>
+
+    <!-- Chapter Transition Banner -->
+    <div class="chapter-banner" id="chapterBanner">
+      <div class="banner-num" id="bannerNum">BÖLÜM I</div>
+      <div class="banner-title" id="bannerTitle">BOŞLUK</div>
+      <div class="banner-desc" id="bannerDesc">Yalnızca sen adım attığında dünya var olur.</div>
+    </div>
+
+    <!-- Bottom Controls Hint -->
+    <div class="hud-bottom" id="hudBottom">
+      <div class="key-hints">
+        <span class="key-box">↑</span>
+        <span class="key-box">↓</span>
+        <span class="key-box">←</span>
+        <span class="key-box">→</span>
+        <span class="key-text">VEYA WASD İLE HAREKET ET</span>
+      </div>
+      <div class="key-hints" id="anomalyHint" style="display:none; color: #38bdf8;">
+        <span>✦</span>
+        <span class="key-text" id="anomalyText">YAKINDA BİR VARLIK HİSSEDİLİYOR</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Start Screen Modal -->
+  <div class="screen-overlay" id="startScreen">
+    <div class="title-logo">
+      <div class="title-logo-core"></div>
+    </div>
+    <h1 class="title-heading">DÜNYA SEN HAREKET EDİNCE VAR</h1>
+    <p class="title-quote">"Sen durursan zaman ve evren de donar."</p>
+    <button class="btn-start" id="btnStart">BAŞLA</button>
+    <p class="title-guide">Yön Tuşları (↑ ↓ ← →) veya WASD ile adım at</p>
+
+    <a href="https://github.com/mert-carli" target="_blank" rel="noopener noreferrer" class="dev-credit-link">
+      <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+      <span>Mert Çarlı (mert-carli)</span>
+    </a>
+  </div>
+
+  <!-- Final Revelation Screen Modal -->
+  <div class="final-screen" id="finalScreen">
+    <p class="final-quote-1" id="finQuote1">"Bu dünyayı sen mi keşfettin?"</p>
+    <p class="final-quote-2" id="finQuote2">"Yoksa dünya seni mi yönlendirdi?"</p>
+    
+    <div class="final-stats" id="finStats">
+      <div class="final-stat-item">
+        <div class="final-stat-val" id="finValTiles">0</div>
+        <div class="final-stat-lbl">Oluşturulan Alan</div>
+      </div>
+      <div class="final-stat-item">
+        <div class="final-stat-val" id="finValSteps">0</div>
+        <div class="final-stat-lbl">Atılan Adım</div>
+      </div>
+      <div class="final-stat-item">
+        <div class="final-stat-val" id="finValChoice">-</div>
+        <div class="final-stat-lbl">Yapılan Seçim</div>
+      </div>
+    </div>
+
+    <button class="btn-sandbox" id="btnContinueSandbox">SONSUZ KEŞİF MODUNA GEÇ →</button>
+
+    <a href="https://github.com/mert-carli" target="_blank" rel="noopener noreferrer" class="dev-credit-link" style="margin-top: 32px;">
+      <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+      <span>Mert Çarlı (mert-carli)</span>
+    </a>
+  </div>
+
+  <script>
+    /**
+     * DÜNYA SEN HAREKET EDİNCE VAR
+     * Özgün 2D Atmosferik Web Oyunu
+     * HTML5 Canvas & Web Audio API
+     */
+
+    // --- Web Audio Synthesizer (Zero External Dependencies) ---
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+        this.droneOsc = null;
+        this.droneGain = null;
+        this.droneFilter = null;
+        this.pentatonicScale = [130.81, 146.83, 164.81, 196.00, 220.00, 261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00];
+      }
+
+      init() {
+        if (this.ctx) return;
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        this.ctx = new AudioCtx();
+        this.setupDrone();
+      }
+
+      setupDrone() {
+        if (!this.ctx || this.droneOsc) return;
+        try {
+          this.droneOsc = this.ctx.createOscillator();
+          this.droneFilter = this.ctx.createBiquadFilter();
+          this.droneGain = this.ctx.createGain();
+
+          this.droneOsc.type = 'sine';
+          this.droneOsc.frequency.setValueAtTime(55, this.ctx.currentTime); // 55Hz (A1)
+
+          this.droneFilter.type = 'lowpass';
+          this.droneFilter.frequency.setValueAtTime(140, this.ctx.currentTime);
+
+          this.droneGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+          this.droneGain.gain.exponentialRampToValueAtTime(0.045, this.ctx.currentTime + 3);
+
+          this.droneOsc.connect(this.droneFilter);
+          this.droneFilter.connect(this.droneGain);
+          this.droneGain.connect(this.ctx.destination);
+
+          this.droneOsc.start();
+        } catch (e) {
+          console.warn('Audio drone init error', e);
+        }
+      }
+
+      setDroneIntensity(level) {
+        if (!this.ctx || !this.droneGain || !this.enabled) return;
+        const targetGain = Math.min(0.09, 0.03 + level * 0.04);
+        const targetFreq = Math.min(300, 100 + level * 160);
+        this.droneGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.8);
+        this.droneFilter.frequency.setTargetAtTime(targetFreq, this.ctx.currentTime, 0.8);
+      }
+
+      // Play soft harmonic chime when new tiles materialize
+      playTileBirth(pitchIndex = 0) {
+        if (!this.ctx || !this.enabled) return;
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const panner = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
+
+        const freq = this.pentatonicScale[pitchIndex % this.pentatonicScale.length];
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.01, this.ctx.currentTime + 0.35);
+
+        gain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.035, this.ctx.currentTime + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.55);
+
+        if (panner) {
+          panner.pan.setValueAtTime((Math.random() - 0.5) * 0.7, this.ctx.currentTime);
+          osc.connect(gain);
+          gain.connect(panner);
+          panner.connect(this.ctx.destination);
+        } else {
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+        }
+
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.6);
+      }
+
+      // Step resonance
+      playStepNote(speedRatio) {
+        if (!this.ctx || !this.enabled) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        const note = 98 + (Math.sin(Date.now() * 0.005) + 1) * 35;
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(note, this.ctx.currentTime);
+
+        gain.gain.setValueAtTime(0.001, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.02, this.ctx.currentTime + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.22);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.25);
+      }
+
+      // Mysterious event or chapter chord
+      playChapterChord() {
+        if (!this.ctx || !this.enabled) return;
+        const notes = [130.81, 196.00, 261.63, 329.63, 392.00, 523.25];
+        notes.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+          gain.gain.setValueAtTime(0.0001, this.ctx.currentTime + idx * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.03, this.ctx.currentTime + 0.3 + idx * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 2.2);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(this.ctx.currentTime + idx * 0.08);
+          osc.stop(this.ctx.currentTime + 2.4);
+        });
+      }
+
+      // Anomaly encounter / mystery whisper
+      playAnomalyChime() {
+        if (!this.ctx || !this.enabled) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(440, this.ctx.currentTime + 1.2);
+
+        gain.gain.setValueAtTime(0.001, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.05, this.ctx.currentTime + 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 1.4);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 1.5);
+      }
+
+      toggle() {
+        this.enabled = !this.enabled;
+        if (this.droneGain) {
+          this.droneGain.gain.setValueAtTime(this.enabled ? 0.045 : 0.00001, this.ctx.currentTime);
+        }
+        return this.enabled;
+      }
+    }
+
+    const sound = new SoundEngine();
+
+    // --- Tile & Object Constants ---
+    const TILE_SIZE = 48; // 48px per grid unit
+
+    const BIOMES = {
+      VOID: { id: 'VOID', name: 'Boşluk', color: '#38bdf8', ground: '#0d1527', accent: '#60a5fa' },
+      MEMORY: { id: 'MEMORY', name: 'Hafıza Bahçesi', color: '#34d399', ground: '#0d241d', accent: '#6ee7b7' },
+      CHOICE_GOLD: { id: 'CHOICE_GOLD', name: 'Işık Yolu', color: '#fbbf24', ground: '#261e0d', accent: '#fde68a' },
+      CHOICE_VIOLET: { id: 'CHOICE_VIOLET', name: 'Derinlik Yolu', color: '#c084fc', ground: '#210e2f', accent: '#e879f9' },
+      SHIFTING: { id: 'SHIFTING', name: 'Dönüşüm', color: '#f43f5e', ground: '#270e17', accent: '#fb7185' },
+      TRUTH_NEXUS: { id: 'TRUTH_NEXUS', name: 'Büyük Merkez', color: '#38bdf8', ground: '#101e38', accent: '#a5f3fc' },
+    };
+
+    const CHAPTERS = [
+      { id: 1, name: 'BOŞLUK', desc: 'Yalnızca sen adım attığında dünya var olur.', targetTiles: 35 },
+      { id: 2, name: 'HAFIZA', desc: 'Geri döndüğün yerler bıraktığın gibi kalmaz, hatırladığın gibi değişir.', targetTiles: 95 },
+      { id: 3, name: 'KARAR', desc: 'Seçtiğin yol parlar, seçmediğin yol boşluğa karışır.', targetTiles: 170 },
+      { id: 4, name: 'GÖZLER', desc: 'Yarattığın dünya seni sessizce izlemeye başladı.', targetTiles: 260 },
+      { id: 5, name: 'DÜNYA DEĞİŞİYOR', desc: 'Yürüdüğün yön, evrenin geleceğini şekillendirir.', targetTiles: 370 },
+      { id: 6, name: 'GERÇEK', desc: 'Bütün bu dünya senin hareketlerinden doğdu.', targetTiles: 500 },
+    ];
+
+    // --- Particle System ---
+    class Particle {
+      constructor(x, y, vx, vy, color, size, life, shape = 'circle') {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.color = color;
+        this.size = size;
+        this.maxLife = life;
+        this.life = life;
+        this.shape = shape;
+      }
+
+      update(dt) {
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+        this.life -= dt;
+        return this.life > 0;
+      }
+
+      draw(ctx) {
+        const alpha = Math.max(0, this.life / this.maxLife);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = this.color;
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 8;
+
+        if (this.shape === 'star') {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size * alpha, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size * alpha, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+
+    // --- Entity / The Watcher (Bölüm 4) ---
+    class WatcherEntity {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.targetX = x;
+        this.targetY = y;
+        this.visible = false;
+        this.alpha = 0;
+        this.pulse = 0;
+        this.dissolved = false;
+      }
+
+      update(playerX, playerY, dt) {
+        if (this.dissolved) return;
+        this.pulse += dt * 2.5;
+
+        // Position at gentle distance ahead of player
+        const dist = Math.hypot(this.x - playerX, this.y - playerY);
+
+        // Fade in when player reaches Chapter 4
+        if (this.visible) {
+          this.alpha = Math.min(1, this.alpha + dt * 0.8);
+        } else {
+          this.alpha = Math.max(0, this.alpha - dt * 1.5);
+        }
+
+        // Float slightly
+        this.y += Math.sin(this.pulse) * 0.4;
+
+        // If player approaches closely, dissolve into particles with sound
+        if (this.visible && dist < 70) {
+          this.dissolve(playerX, playerY);
+        }
+      }
+
+      dissolve(px, py) {
+        this.dissolved = true;
+        this.visible = false;
+        sound.playAnomalyChime();
+        game.showPrompt('BİR GÖZLEMİ GEÇTİN', 'Varlık evrenin dokusuna karıştı');
+
+        for (let i = 0; i < 35; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const spd = 40 + Math.random() * 120;
+          game.particles.push(new Particle(
+            this.x, this.y,
+            Math.cos(angle) * spd, Math.sin(angle) * spd,
+            '#a78bfa', 2 + Math.random() * 3, 1.4, 'star'
+          ));
+        }
+      }
+
+      draw(ctx) {
+        if (this.alpha <= 0.01 || this.dissolved) return;
+        ctx.save();
+        ctx.globalAlpha = this.alpha;
+        ctx.shadowColor = '#c084fc';
+        ctx.shadowBlur = 24;
+
+        // Outer spectral ring
+        ctx.strokeStyle = 'rgba(192, 132, 252, 0.7)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 20 + Math.sin(this.pulse) * 3, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Eye diamond silhouette
+        ctx.fillStyle = 'rgba(238, 242, 255, 0.95)';
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y, 14, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eye pupil
+        ctx.fillStyle = '#6b21a8';
+        ctx.beginPath();
+        ctx.arc(this.x + Math.sin(this.pulse * 0.7) * 2, this.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      }
+    }
+
+    // --- Main Game Class ---
+    class WorldCreationGame {
+      constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.dpr = window.devicePixelRatio || 1;
+
+        // Game State
+        this.isRunning = false;
+        this.currentChapterIndex = 0;
+        this.tiles = new Map(); // key -> Tile
+        this.particles = [];
+        this.memoryEchoes = [];
+        this.footprints = [];
+        this.watcher = null;
+
+        // Player Attributes
+        this.player = {
+          x: 0,
+          y: 0,
+          vx: 0,
+          vy: 0,
+          speed: 185,
+          radius: 9,
+          facingX: 1,
+          facingY: 0,
+          isMoving: false,
+          trailTimer: 0,
+          stepSoundTimer: 0,
+          idleTime: 0,
+          idleWarnLevel: 0,
+          totalSteps: 0,
+          horizontalBias: 0,
+          verticalBias: 0,
+          pathChoice: null, // 'GOLD' or 'VIOLET'
+        };
+
+        // Camera
+        this.camera = {
+          x: 0,
+          y: 0,
+          targetX: 0,
+          targetY: 0,
+          zoom: 1,
+        };
+
+        // Input
+        this.keys = {
+          up: false,
+          down: false,
+          left: false,
+          right: false,
+        };
+
+        // Timing
+        this.lastTime = performance.now();
+        this.activeBiome = BIOMES.VOID;
+        this.choiceForkPlaced = false;
+
+        this.initDOM();
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        this.setupInputs();
+      }
+
+      initDOM() {
+        this.dom = {
+          startScreen: document.getElementById('startScreen'),
+          btnStart: document.getElementById('btnStart'),
+          hudTop: document.getElementById('hudTop'),
+          hudBottom: document.getElementById('hudBottom'),
+          hudChapter: document.getElementById('hudChapter'),
+          hudWorld: document.getElementById('hudWorld'),
+          hudDiscovered: document.getElementById('hudDiscovered'),
+          hudSteps: document.getElementById('hudSteps'),
+          idleMsgBox: document.getElementById('idleMsgBox'),
+          idleMsgText: document.getElementById('idleMsgText'),
+          idleSubText: document.getElementById('idleSubText'),
+          chapterBanner: document.getElementById('chapterBanner'),
+          bannerNum: document.getElementById('bannerNum'),
+          bannerTitle: document.getElementById('bannerTitle'),
+          bannerDesc: document.getElementById('bannerDesc'),
+          audioToggle: document.getElementById('audioToggle'),
+          audioIcon: document.getElementById('audioIcon'),
+          audioText: document.getElementById('audioText'),
+          anomalyHint: document.getElementById('anomalyHint'),
+          anomalyText: document.getElementById('anomalyText'),
+          finalScreen: document.getElementById('finalScreen'),
+          finQuote1: document.getElementById('finQuote1'),
+          finQuote2: document.getElementById('finQuote2'),
+          finStats: document.getElementById('finStats'),
+          finValTiles: document.getElementById('finValTiles'),
+          finValSteps: document.getElementById('finValSteps'),
+          finValChoice: document.getElementById('finValChoice'),
+          btnContinueSandbox: document.getElementById('btnContinueSandbox'),
+        };
+
+        this.dom.btnStart.addEventListener('click', () => this.start());
+        this.dom.audioToggle.addEventListener('click', () => {
+          const on = sound.toggle();
+          this.dom.audioIcon.textContent = on ? '🔊' : '🔇';
+          this.dom.audioText.textContent = on ? 'SES: AÇIK' : 'SES: KAPALI';
+        });
+
+        this.dom.btnContinueSandbox.addEventListener('click', () => {
+          this.dom.finalScreen.classList.remove('active');
+          this.showPrompt('SONSUZ BOŞLUK', 'Dünyayı istediğin kadar büyütmeye devam et');
+        });
+      }
+
+      resize() {
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+        this.canvas.width = this.width * this.dpr;
+        this.canvas.height = this.height * this.dpr;
+        this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      }
+
+      setupInputs() {
+        const updateKey = (code, state) => {
+          switch (code) {
+            case 'ArrowUp':
+            case 'KeyW':
+              this.keys.up = state;
+              break;
+            case 'ArrowDown':
+            case 'KeyS':
+              this.keys.down = state;
+              break;
+            case 'ArrowLeft':
+            case 'KeyA':
+              this.keys.left = state;
+              break;
+            case 'ArrowRight':
+            case 'KeyD':
+              this.keys.right = state;
+              break;
+          }
+        };
+
+        window.addEventListener('keydown', (e) => {
+          if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+            e.preventDefault(); // Prevent browser scrolling
+          }
+          updateKey(e.code, true);
+        });
+
+        window.addEventListener('keyup', (e) => {
+          updateKey(e.code, false);
+        });
+      }
+
+      start() {
+        sound.init();
+        this.isRunning = true;
+        this.dom.startScreen.classList.add('hidden');
+        this.dom.hudTop.classList.add('visible');
+        this.dom.hudBottom.classList.add('visible');
+
+        // Materialize starting pad (small 3x3 void zone)
+        for (let gx = -1; gx <= 1; gx++) {
+          for (let gy = -1; gy <= 1; gy++) {
+            this.materializeTile(gx, gy, true, BIOMES.VOID);
+          }
+        }
+
+        this.showChapterBanner(0);
+        this.lastTime = performance.now();
+        requestAnimationFrame((t) => this.loop(t));
+      }
+
+      getTileKey(gx, gy) {
+        return `${gx},${gy}`;
+      }
+
+      materializeTile(gx, gy, immediate = false, forcedBiome = null) {
+        const key = this.getTileKey(gx, gy);
+        if (this.tiles.has(key)) return this.tiles.get(key);
+
+        const currentChap = CHAPTERS[this.currentChapterIndex] || CHAPTERS[0];
+        let biome = forcedBiome || this.activeBiome;
+
+        // Biome determination based on distance and direction
+        const distFromCenter = Math.hypot(gx, gy);
+        if (!forcedBiome) {
+          if (this.currentChapterIndex === 0) {
+            biome = BIOMES.VOID;
+          } else if (this.currentChapterIndex === 1) {
+            biome = BIOMES.MEMORY;
+          } else if (this.currentChapterIndex === 2) {
+            if (this.player.pathChoice === 'GOLD' || gx > 15) {
+              biome = BIOMES.CHOICE_GOLD;
+            } else if (this.player.pathChoice === 'VIOLET' || gy < -15) {
+              biome = BIOMES.CHOICE_VIOLET;
+            } else {
+              biome = BIOMES.VOID;
+            }
+          } else if (this.currentChapterIndex === 3) {
+            biome = BIOMES.MEMORY;
+          } else if (this.currentChapterIndex === 4) {
+            biome = BIOMES.SHIFTING;
+          } else if (this.currentChapterIndex >= 5) {
+            biome = BIOMES.TRUTH_NEXUS;
+          }
+        }
+
+        // Procedural features on the tile
+        let feature = null;
+        const seed = Math.abs(Math.sin(gx * 12.9898 + gy * 78.233) * 43758.5453);
+        const rand = seed - Math.floor(seed);
+
+        if (rand > 0.88) {
+          feature = 'CRYSTAL';
+        } else if (rand > 0.76) {
+          feature = 'MONOLITH';
+        } else if (rand > 0.62) {
+          feature = 'FLORA';
+        } else if (rand > 0.54) {
+          feature = 'GLYPH';
+        }
+
+        const tile = {
+          gx,
+          gy,
+          worldX: gx * TILE_SIZE,
+          worldY: gy * TILE_SIZE,
+          biome,
+          feature,
+          scale: immediate ? 1 : 0.05,
+          alpha: immediate ? 1 : 0.1,
+          createdAt: Date.now(),
+          visitCount: 0,
+          altered: false,
+        };
+
+        this.tiles.set(key, tile);
+
+        // Sound & Particle feedback for dynamic creation
+        if (!immediate) {
+          sound.playTileBirth(this.tiles.size);
+          for (let p = 0; p < 4; p++) {
+            const angle = Math.random() * Math.PI * 2;
+            const spd = 15 + Math.random() * 35;
+            this.particles.push(new Particle(
+              tile.worldX + TILE_SIZE / 2, tile.worldY + TILE_SIZE / 2,
+              Math.cos(angle) * spd, Math.sin(angle) * spd,
+              biome.color, 2.5, 0.8, 'star'
+            ));
+          }
+        }
+
+        this.updateStats();
+        return tile;
+      }
+
+      // Check player view cone and materialize in front of player
+      generateAhead() {
+        const pGridX = Math.round(this.player.x / TILE_SIZE);
+        const pGridY = Math.round(this.player.y / TILE_SIZE);
+
+        const fx = this.player.facingX;
+        const fy = this.player.facingY;
+
+        // Radial + Forward cone of creation
+        const reachForward = 5;
+        const reachSide = 3;
+
+        for (let ox = -reachSide; ox <= reachSide; ox++) {
+          for (let oy = -reachSide; oy <= reachSide; oy++) {
+            const gx = pGridX + ox;
+            const gy = pGridY + oy;
+
+            // In front of motion vector gets prioritized
+            const dot = ox * fx + oy * fy;
+            const dist = Math.hypot(ox, oy);
+
+            if (dist <= 3.2 || (dot > 0 && dist <= reachForward)) {
+              if (!this.tiles.has(this.getTileKey(gx, gy))) {
+                this.materializeTile(gx, gy, false);
+              }
+            }
+          }
+        }
+
+        // Memory Alterations (Chapter 2 & 5)
+        const currentTileKey = this.getTileKey(pGridX, pGridY);
+        if (this.tiles.has(currentTileKey)) {
+          const currentTile = this.tiles.get(currentTileKey);
+          currentTile.visitCount++;
+
+          if (this.currentChapterIndex >= 1 && currentTile.visitCount > 1 && !currentTile.altered) {
+            currentTile.altered = true;
+            if (!currentTile.feature && Math.random() > 0.4) {
+              currentTile.feature = 'MEMORY_BLOOM';
+              sound.playStepNote(1.5);
+            }
+          }
+        }
+      }
+
+      updateStats() {
+        const total = this.tiles.size;
+        const target = CHAPTERS[CHAPTERS.length - 1].targetTiles;
+        const pct = Math.min(100, Math.round((total / target) * 100));
+
+        this.dom.hudDiscovered.textContent = `${pct}%`;
+        this.dom.hudWorld.textContent = String(Math.floor(total / 12) + 1).padStart(3, '0');
+        this.dom.hudSteps.textContent = this.player.totalSteps;
+
+        sound.setDroneIntensity(pct / 100);
+
+        // Check chapter progression
+        this.checkChapterTriggers(total);
+      }
+
+      checkChapterTriggers(total) {
+        const nextChapIndex = this.currentChapterIndex + 1;
+        if (nextChapIndex < CHAPTERS.length) {
+          const req = CHAPTERS[this.currentChapterIndex].targetTiles;
+          if (total >= req) {
+            this.currentChapterIndex = nextChapIndex;
+            this.showChapterBanner(this.currentChapterIndex);
+            sound.playChapterChord();
+            this.onChapterEnter(this.currentChapterIndex);
+          }
+        }
+      }
+
+      onChapterEnter(index) {
+        const chap = CHAPTERS[index];
+        this.dom.hudChapter.textContent = `BÖLÜM ${['I','II','III','IV','V','VI'][index]} — ${chap.name}`;
+
+        if (index === 2) {
+          // Chapter 3: KARAR (Fork in the path)
+          this.showPrompt('ÖNÜNDE İKİ FARKLI YOL OLUŞUYOR', 'Biri ışıklı ve sıcak, diğeri karanlık ve derin.');
+        } else if (index === 3) {
+          // Chapter 4: GÖZLER (Spawn the Watcher ahead)
+          const px = this.player.x + this.player.facingX * 220;
+          const py = this.player.y + this.player.facingY * 220;
+          this.watcher = new WatcherEntity(px, py);
+          this.watcher.visible = true;
+          this.dom.anomalyHint.style.display = 'flex';
+        } else if (index === 5) {
+          // Chapter 6: GERÇEK (Final Revelation)
+          setTimeout(() => this.triggerFinalScreen(), 4000);
+        }
+      }
+
+      triggerFinalScreen() {
+        this.dom.finalScreen.classList.add('active');
+        sound.playChapterChord();
+
+        this.dom.finValTiles.textContent = this.tiles.size;
+        this.dom.finValSteps.textContent = this.player.totalSteps;
+        this.dom.finValChoice.textContent = this.player.pathChoice === 'GOLD' ? 'Işık Yolu' : (this.player.pathChoice === 'VIOLET' ? 'Derinlik Yolu' : 'Dengeli Yol');
+
+        setTimeout(() => this.dom.finQuote1.classList.add('visible-anim'), 600);
+        setTimeout(() => this.dom.finQuote2.classList.add('visible-anim'), 2400);
+        setTimeout(() => this.dom.finStats.classList.add('visible-anim'), 4200);
+        setTimeout(() => this.dom.btnContinueSandbox.classList.add('visible-anim'), 5800);
+      }
+
+      showChapterBanner(index) {
+        const chap = CHAPTERS[index];
+        this.dom.bannerNum.textContent = `BÖLÜM ${['I','II','III','IV','V','VI'][index]}`;
+        this.dom.bannerTitle.textContent = chap.name;
+        this.dom.bannerDesc.textContent = chap.desc;
+
+        this.dom.chapterBanner.classList.add('active');
+        setTimeout(() => {
+          this.dom.chapterBanner.classList.remove('active');
+        }, 4000);
+      }
+
+      showPrompt(mainText, subText = '') {
+        this.dom.idleMsgText.textContent = mainText;
+        this.dom.idleSubText.textContent = subText;
+        this.dom.idleMsgBox.classList.add('show');
+        setTimeout(() => {
+          this.dom.idleMsgBox.classList.remove('show');
+        }, 4500);
+      }
+
+      update(dt) {
+        let dx = 0;
+        let dy = 0;
+
+        if (this.keys.up) dy -= 1;
+        if (this.keys.down) dy += 1;
+        if (this.keys.left) dx -= 1;
+        if (this.keys.right) dx += 1;
+
+        const isMoving = dx !== 0 || dy !== 0;
+
+        if (isMoving) {
+          // Normalize diagonal speed
+          const len = Math.hypot(dx, dy);
+          dx /= len;
+          dy /= len;
+
+          this.player.facingX = dx;
+          this.player.facingY = dy;
+          this.player.x += dx * this.player.speed * dt;
+          this.player.y += dy * this.player.speed * dt;
+
+          this.player.horizontalBias += Math.abs(dx) * dt;
+          this.player.verticalBias += Math.abs(dy) * dt;
+
+          // Steps counter
+          this.player.stepSoundTimer += dt;
+          if (this.player.stepSoundTimer > 0.28) {
+            this.player.stepSoundTimer = 0;
+            this.player.totalSteps++;
+            sound.playStepNote(1);
+            this.footprints.push({ x: this.player.x, y: this.player.y, alpha: 0.7, color: this.activeBiome.color });
+            if (this.footprints.length > 50) this.footprints.shift();
+          }
+
+          // Trail particles
+          this.player.trailTimer += dt;
+          if (this.player.trailTimer > 0.05) {
+            this.player.trailTimer = 0;
+            this.particles.push(new Particle(
+              this.player.x + (Math.random() - 0.5) * 6,
+              this.player.y + (Math.random() - 0.5) * 6,
+              -dx * 20 + (Math.random() - 0.5) * 15,
+              -dy * 20 + (Math.random() - 0.5) * 15,
+              this.activeBiome.color, 2, 0.6
+            ));
+          }
+
+          // Generate world ahead
+          this.generateAhead();
+
+          // Reset idle detection
+          if (this.player.idleTime > 0) {
+            this.dom.idleMsgBox.classList.remove('show');
+          }
+          this.player.idleTime = 0;
+          this.player.idleWarnLevel = 0;
+
+          // Track path decision in Chapter 3
+          if (this.currentChapterIndex === 2 && !this.player.pathChoice) {
+            if (this.player.x > 180) {
+              this.player.pathChoice = 'GOLD';
+              this.activeBiome = BIOMES.CHOICE_GOLD;
+              this.showPrompt('IŞIK YOLUNU SEÇTİN', 'Sen seçmediğin derinlikleri de yok ediyorsun.');
+              sound.playChapterChord();
+            } else if (this.player.y < -180) {
+              this.player.pathChoice = 'VIOLET';
+              this.activeBiome = BIOMES.CHOICE_VIOLET;
+              this.showPrompt('DERİNLİK YOLUNU SEÇTİN', 'Karanlığın içinde parlayan bir hakikat var.');
+              sound.playChapterChord();
+            }
+          }
+
+        } else {
+          // Player is standing still -> Mystery Self-Aware Messages!
+          this.player.idleTime += dt;
+
+          if (this.player.idleTime > 5.5 && this.player.idleWarnLevel === 0) {
+            this.player.idleWarnLevel = 1;
+            this.showPrompt('Neden durdun?', 'Dünya senin hareketinle var oluyor.');
+            sound.playAnomalyChime();
+          } else if (this.player.idleTime > 12.0 && this.player.idleWarnLevel === 1) {
+            this.player.idleWarnLevel = 2;
+            this.showPrompt('Dünya seni beklemiyor.', 'Sen durursan zaman da donar.');
+            sound.playAnomalyChime();
+          } else if (this.player.idleTime > 20.0 && this.player.idleWarnLevel === 2) {
+            this.player.idleWarnLevel = 3;
+            this.showPrompt('Yoksa vaz mı geçtin?', 'Boşluk tekrar genişliyor...');
+          }
+        }
+
+        // Camera Smooth Follow
+        this.camera.targetX = this.player.x;
+        this.camera.targetY = this.player.y;
+        this.camera.x += (this.camera.targetX - this.camera.x) * dt * 5.0;
+        this.camera.y += (this.camera.targetY - this.camera.y) * dt * 5.0;
+
+        // Tile Materialization animation
+        this.tiles.forEach(tile => {
+          if (tile.scale < 1) {
+            tile.scale = Math.min(1, tile.scale + dt * 4.5);
+            tile.alpha = Math.min(1, tile.alpha + dt * 4.5);
+          }
+        });
+
+        // Update Watcher
+        if (this.watcher) {
+          this.watcher.update(this.player.x, this.player.y, dt);
+        }
+
+        // Update Particles
+        this.particles = this.particles.filter(p => p.update(dt));
+
+        // Fade Footprints
+        this.footprints.forEach(f => f.alpha -= dt * 0.08);
+        this.footprints = this.footprints.filter(f => f.alpha > 0);
+      }
+
+      draw() {
+        const ctx = this.ctx;
+        ctx.clearRect(0, 0, this.width, this.height);
+
+        ctx.save();
+        // Camera translation
+        const cx = this.width / 2 - this.camera.x;
+        const cy = this.height / 2 - this.camera.y;
+        ctx.translate(cx, cy);
+
+        // Viewport Culling Bounds
+        const minX = this.camera.x - this.width / 2 - TILE_SIZE * 2;
+        const maxX = this.camera.x + this.width / 2 + TILE_SIZE * 2;
+        const minY = this.camera.y - this.height / 2 - TILE_SIZE * 2;
+        const maxY = this.camera.y + this.height / 2 + TILE_SIZE * 2;
+
+        const time = Date.now() * 0.002;
+
+        // 1. Draw Materialized Tiles
+        this.tiles.forEach(tile => {
+          if (tile.worldX < minX || tile.worldX > maxX || tile.worldY < minY || tile.worldY > maxY) return;
+
+          ctx.save();
+          ctx.globalAlpha = tile.alpha;
+
+          const centerX = tile.worldX + TILE_SIZE / 2;
+          const centerY = tile.worldY + TILE_SIZE / 2;
+          ctx.translate(centerX, centerY);
+          ctx.scale(tile.scale, tile.scale);
+          ctx.translate(-centerX, -centerY);
+
+          // Tile Base Ground
+          ctx.fillStyle = tile.biome.ground;
+          ctx.fillRect(tile.worldX + 1, tile.worldY + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+
+          // Neon Edge Seams
+          ctx.strokeStyle = tile.biome.color;
+          ctx.lineWidth = 1;
+          ctx.globalAlpha = tile.alpha * 0.35;
+          ctx.strokeRect(tile.worldX + 2, tile.worldY + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+          ctx.globalAlpha = tile.alpha;
+
+          // Special Features
+          if (tile.feature === 'CRYSTAL') {
+            ctx.fillStyle = tile.biome.accent;
+            ctx.shadowColor = tile.biome.color;
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY - 10);
+            ctx.lineTo(centerX + 6, centerY);
+            ctx.lineTo(centerX, centerY + 10);
+            ctx.lineTo(centerX - 6, centerY);
+            ctx.closePath();
+            ctx.fill();
+          } else if (tile.feature === 'MONOLITH') {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.shadowColor = tile.biome.color;
+            ctx.shadowBlur = 10;
+            ctx.fillRect(centerX - 4, centerY - 14, 8, 22);
+            ctx.strokeStyle = tile.biome.color;
+            ctx.strokeRect(centerX - 4, centerY - 14, 8, 22);
+          } else if (tile.feature === 'FLORA' || tile.feature === 'MEMORY_BLOOM') {
+            const glow = tile.feature === 'MEMORY_BLOOM' ? '#a7f3d0' : tile.biome.color;
+            ctx.fillStyle = glow;
+            ctx.shadowColor = glow;
+            ctx.shadowBlur = 14;
+            const sway = Math.sin(time + tile.gx) * 3;
+            ctx.beginPath();
+            ctx.arc(centerX + sway, centerY - 4, tile.feature === 'MEMORY_BLOOM' ? 5 : 3.5, 0, Math.PI * 2);
+            ctx.fill();
+            // Stem
+            ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY + 10);
+            ctx.quadraticCurveTo(centerX, centerY, centerX + sway, centerY - 4);
+            ctx.stroke();
+          } else if (tile.feature === 'GLYPH') {
+            ctx.strokeStyle = tile.biome.accent;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 6, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+
+          ctx.restore();
+        });
+
+        // 2. Draw Footprints
+        this.footprints.forEach(f => {
+          ctx.save();
+          ctx.globalAlpha = f.alpha * 0.4;
+          ctx.fillStyle = f.color;
+          ctx.beginPath();
+          ctx.arc(f.x, f.y, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        });
+
+        // 3. Draw Particles
+        this.particles.forEach(p => p.draw(ctx));
+
+        // 4. Draw Watcher Entity (Bölüm 4)
+        if (this.watcher) {
+          this.watcher.draw(ctx);
+        }
+
+        // 5. Draw Player Character (Ethereal Light Traveler)
+        ctx.save();
+        // Dynamic Player Glow Aura
+        const auraGrad = ctx.createRadialGradient(this.player.x, this.player.y, 2, this.player.x, this.player.y, 38);
+        auraGrad.addColorStop(0, 'rgba(56, 189, 248, 0.45)');
+        auraGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+        ctx.fillStyle = auraGrad;
+        ctx.beginPath();
+        ctx.arc(this.player.x, this.player.y, 38, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Player Core
+        ctx.shadowColor = '#38bdf8';
+        ctx.shadowBlur = 18;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(this.player.x, this.player.y, this.player.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Direction Indicator Eye / Spark
+        ctx.fillStyle = '#0284c7';
+        ctx.beginPath();
+        ctx.arc(
+          this.player.x + this.player.facingX * 4,
+          this.player.y + this.player.facingY * 4,
+          2.5, 0, Math.PI * 2
+        );
+        ctx.fill();
+        ctx.restore();
+
+        // 6. Void Shroud & Dynamic Fog of War
+        // A soft darkness mask that keeps outer unexplored areas mysteriously shrouded
+        ctx.restore(); // Exit camera coordinates for screen-space mask
+
+        ctx.save();
+        const lightX = this.width / 2 + (this.player.x - this.camera.x);
+        const lightY = this.height / 2 + (this.player.y - this.camera.y);
+
+        const lightRadius = Math.max(220, Math.min(this.width, this.height) * 0.42);
+        const darkGrad = ctx.createRadialGradient(
+          lightX, lightY, lightRadius * 0.2,
+          lightX, lightY, lightRadius
+        );
+        darkGrad.addColorStop(0, 'rgba(4, 6, 10, 0)');
+        darkGrad.addColorStop(0.7, 'rgba(4, 6, 10, 0.45)');
+        darkGrad.addColorStop(1, 'rgba(4, 6, 10, 0.95)');
+
+        ctx.fillStyle = darkGrad;
+        ctx.fillRect(0, 0, this.width, this.height);
+        ctx.restore();
+      }
+
+      loop(timestamp) {
+        if (!this.isRunning) return;
+        const dt = Math.min(0.1, (timestamp - this.lastTime) / 1000);
+        this.lastTime = timestamp;
+
+        this.update(dt);
+        this.draw();
+
+        requestAnimationFrame((t) => this.loop(t));
+      }
+    }
+
+    // Launch on DOM ready
+    window.addEventListener('DOMContentLoaded', () => {
+      window.game = new WorldCreationGame();
+    });
+  </script>
+</body>
+</html>
